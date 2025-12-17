@@ -1,6 +1,6 @@
-# PythonWisp Syntax Reference
+# PyWisp Syntax Reference
 
-Complete syntax guide for the PythonWisp DSL (Python-style syntax that transpiles to JavaScript/TypeScript).
+Complete syntax guide for the PyWisp DSL (Python-style syntax that transpiles to JavaScript/TypeScript).
 
 ---
 
@@ -24,7 +24,7 @@ Complete syntax guide for the PythonWisp DSL (Python-style syntax that transpile
 
 ### Local Variables
 
-All variables are local by default (scoped to their block).
+Variables are scoped to their block by default and transpile to `var` declarations.
 
 ```python
 x = 10
@@ -41,7 +41,7 @@ var isActive:any = true;
 
 ### Global Variables
 
-To expose variables globally, use the `global` keyword.
+Use the `global` keyword to add variables to the `globals` object.
 
 ```python
 global x = 10
@@ -54,7 +54,7 @@ globals.x = 10;
 globals.name = "Alice";
 ```
 
-**Note:** Use `global` sparingly to avoid polluting the global scope.
+**Note:** It's recommended to use local variables for most cases to avoid polluting the global scope.
 
 ---
 
@@ -62,7 +62,7 @@ globals.name = "Alice";
 
 ### Local Functions
 
-Functions are local by default and use `def` keyword.
+Functions are scoped to their block by default.
 
 ```python
 def greet(name):
@@ -74,14 +74,15 @@ greet("World")
 **Transpiles to:**
 ```javascript
 function greet(name:any) {
-    console.log(("Hello, " + name));
+console.log(("Hello, " + name));
+
 }
 greet("World");
 ```
 
 ### Global Functions
 
-Use `global` keyword to expose functions globally.
+Use the `global` keyword to add functions to the `globals` object.
 
 ```python
 global def greet(name):
@@ -93,20 +94,24 @@ greet("World")
 **Transpiles to:**
 ```javascript
 globals.greet = function(name:any) {
-    console.log(("Hello, " + name));
+console.log(("Hello, " + name));
+
 }
 globals.greet("World");
 ```
 
-### Lambda Functions
+### Function Expressions
 
-Functions can be assigned to variables using lambda syntax.
+Functions can be assigned to variables as expressions.
 
 ```python
-sayHello = lambda name: "Hello, " + name
+sayHello = def(name):
+    return "Hello, " + name
 
 print(sayHello("Alice"))
 ```
+
+**Note:** Lambda functions are not supported. Use `def(): pass` for inline function expressions.
 
 ---
 
@@ -114,16 +119,16 @@ print(sayHello("Alice"))
 
 ### Basic Class
 
-Classes must have an `init` method (constructor). Use `pass` for empty class bodies.
+Classes must have an `init` method (constructor). All class definitions are local by default.
 
 ```python
 class Person:
     def init(name, age):
-        self.name = name
-        self.age = age
+        this.name = name
+        this.age = age
     
     def greet():
-        print("Hi, I'm " + self.name)
+        print("Hi, I'm " + this.name)
 
 person = Person("Alice", 30)
 person.greet()
@@ -131,28 +136,27 @@ person.greet()
 
 **Transpiles to:**
 ```javascript
-function Person(name:any, age:any) {
-    this.name = name;
-    this.age = age;
+function Person(name:any,age:any) {
+this.name = name;
+this.age = age;
 }
 Person.prototype.greet = function() {
-    console.log(("Hi, I'm " + this.name));
+console.log(("Hi, I'm " + this.name));
 };
-var person:any = new Person("Alice", 30);
+var person:any = new Person("Alice",30);
 person.greet();
 ```
 
 ### Empty Classes
 
-Use `pass` to create empty class bodies.
+Classes can be declared without methods using `pass`.
 
 ```python
 class Animal:
     pass
 
 class EmptyClass:
-    def init():
-        pass
+    pass
 ```
 
 ### Class Inheritance
@@ -162,30 +166,44 @@ Use `implements` for inheritance (single inheritance only).
 ```python
 class Animal:
     def init(name):
-        self.name = name
+        this.name = name
     
     def speak():
-        print(self.name + " makes a sound")
+        print(this.name + " makes a sound")
 
 class Dog implements Animal:
     def init(name, breed):
-        self.name = name
-        self.breed = breed
+        this.name = name
+        this.breed = breed
     
     def speak():
-        print(self.name + " barks")
+        print(this.name + " barks")
 
 dog = Dog("Buddy", "Golden Retriever")
 dog.speak()
 ```
 
-**Note:** 
-- All class definitions are **local by default**
-- To expose a class globally, wrap it in a global variable:
+**Note:** The parent class constructor is automatically called with the same arguments.
+
+### Global Class Instances
+
+Classes and their methods are always local. To expose class instances to other sprite scripts, create a global instance.
+
 ```python
-global MyClass = class MyClass:
+# Local class definition
+class MyClass:
     def init():
-        pass
+        this.value = 0
+    
+    def increment():
+        this.value += 1
+
+# Create global instance to expose to other scripts
+global instance = MyClass()
+
+# Now 'instance' is accessible from other sprite scripts
+instance.increment()
+print(instance.value)
 ```
 
 ---
@@ -194,7 +212,7 @@ global MyClass = class MyClass:
 
 ### Object Literals
 
-Objects use `=` for key-value pairs inside curly braces `{}`.
+Objects use `=` for key-value pairs (not `:` like JavaScript).
 
 ```python
 person = {
@@ -235,12 +253,13 @@ print(person.address.coordinates.lat)
 
 ### Objects with Methods
 
-Methods can reference the object by name (not `self` - that's only for classes).
+Methods can reference the object by name (not `this` - that's only for classes).
 
 ```python
 person = {
     name = "Jim",
-    sayName = lambda: print(person.name)
+    sayName = def():
+        print(person.name)
 }
 
 person.sayName()
@@ -248,12 +267,10 @@ person.sayName()
 
 **Transpiles to:**
 ```javascript
-var person:any = { 
-    name: "Jim", 
-    sayName: function() {
-        console.log((person.name));
-    } 
-};
+var person:any = { name: "Jim", sayName: function() {
+console.log((person.name));
+
+} };
 person.sayName();
 ```
 
@@ -263,7 +280,7 @@ person.sayName();
 
 ### List Literals
 
-Lists use curly braces `{}` with comma-separated values (no keys).
+Lists use `{}` braces (not `[]` like standard Python).
 
 ```python
 numbers = {1, 2, 3, 4, 5}
@@ -273,9 +290,9 @@ mixed = {1, "two", 3, True}
 
 **Transpiles to:**
 ```javascript
-var numbers:any = [1, 2, 3, 4, 5];
-var names:any = ["Alice", "Bob", "Charlie"];
-var mixed:any = [1, "two", 3, true];
+var numbers:any = [1,2,3,4,5];
+var names:any = ["Alice","Bob","Charlie"];
+var mixed:any = [1,"two",3,true];
 ```
 
 ### Nested Lists
@@ -319,11 +336,8 @@ print(people[1].age)   # 25
 
 **Important:** You cannot mix list syntax and object syntax in the same literal:
 ```python
-# ❌ ERROR: Cannot mix types
-invalid = {
-    a = 1,
-    {1, 2, 3}  # Error!
-}
+# ❌ ERROR: Cannot mix
+invalid = {1, 2, name = "test"}
 
 # ✅ Correct: Choose one
 list = {1, 2, 3}
@@ -403,8 +417,6 @@ isTrue = True
 isFalse = False
 ```
 
-**Note:** Python-style capitalized booleans (`True`/`False`)
-
 ### None
 
 ```python
@@ -428,14 +440,14 @@ m = 10 % 3   # Modulo
 p = 2 ** 8   # Exponentiation
 ```
 
-### Augmented Assignment
+### Compound Assignment Operators
 
 ```python
-x = 10
-x += 5   # Add and assign
-x -= 3   # Subtract and assign
-x *= 2   # Multiply and assign
-x /= 2   # Divide and assign
+x += 5   # x = x + 5
+x -= 3   # x = x - 3
+x *= 2   # x = x * 2
+x /= 4   # x = x / 4
+x %= 3   # x = x % 3
 ```
 
 ### String Concatenation
@@ -445,7 +457,7 @@ greeting = "Hello, " + "World!"
 message = "Count: " + str(42)
 ```
 
-**Note:** Use `+` operator for string concatenation
+**Transpiles to:** JavaScript `+` operator
 
 ### Comparison Operators
 
@@ -549,14 +561,7 @@ This is a multi-line string.
 It preserves line breaks and spacing.
 No escape sequences needed for quotes: "Hello" 'World'
 """
-
-a = """
-Another multi-line string
-with multiple lines
-"""
 ```
-
-**Note:** Triple-quoted strings can also be used for multi-line comments.
 
 ---
 
@@ -573,61 +578,54 @@ else:
     print("5 or less")
 ```
 
-### Pass Statement
-
-Use `pass` for empty code blocks.
-
-```python
-if condition:
-    pass  # Do nothing
-
-def emptyFunction():
-    pass
-```
-
 ### While Loops
 
 ```python
 i = 0
 while i < 5:
     print(i)
-    i += 1
+    i = i + 1
+```
 
-# Infinite loop
+### While True Loop
+
+```python
+i = 0
 while True:
-    print("Forever")
-    break
+    print(i)
+    i = i + 1
+    if i >= 5:
+        break
 ```
 
 ### For Loops
 
-PythonWisp uses a unique for loop syntax with three parts separated by commas:
+PyWisp uses a unique for loop syntax with three expressions.
 
+**Standard For Loop:**
 ```python
-# Standard for loop: initialization, condition, increment
+for i = 0, i < 10, i = i + 1:
+    print(i)
+```
+
+**With Compound Assignment:**
+```python
 for i = 0, i < 10, i += 1:
     print(i)
+```
 
-# Loop with global variable
+**With Global Variable:**
+```python
 for global i = 0, i < 10, i += 1:
     print(i)
-
-# Loop over list
-for i = 0, i < len(obj), i += 1:
-    print(obj[i])
 ```
 
 **Transpiles to:**
 ```javascript
-for (var i:any = 0; i < 10; i += 1) {
+for (var i:any = 0; i < 10; i = i + 1) {
     console.log((i));
 }
 ```
-
-**Format:** `for INIT, CONDITION, INCREMENT:`
-- **INIT**: Variable initialization (can use `global`)
-- **CONDITION**: Loop continuation condition
-- **INCREMENT**: Update expression after each iteration
 
 ### Break Statement
 
@@ -635,16 +633,31 @@ for (var i:any = 0; i < 10; i += 1) {
 i = 0
 while True:
     print(i)
-    i += 1
+    i = i + 1
     if i >= 5:
         break
+```
+
+### Pass Statement
+
+Use `pass` as a placeholder in empty blocks.
+
+```python
+if x > 10:
+    pass  # Do nothing
+
+class EmptyClass:
+    pass  # Empty class definition
+
+def emptyFunction():
+    pass  # Empty function
 ```
 
 ---
 
 ## Special Features
 
-### Print Function
+### Print Statement
 
 Built-in `print` function.
 
@@ -663,18 +676,20 @@ def add(a, b):
     return a + b
 ```
 
-### Self Keyword
+### This Keyword
 
-`self` is only available inside class methods.
+`this` is only available inside class methods.
 
 ```python
 class Dog:
     def init(name):
-        self.name = name  # ✅ Valid in class
+        this.name = name  # ✅ Valid in class
 
 obj = {
     name = "test",
-    greet = lambda: print(obj.name)  # ✅ Use object name
+    greet = def():
+        # ❌ Cannot use 'this' here
+        print(obj.name)  # ✅ Use object name instead
 }
 ```
 
@@ -685,11 +700,13 @@ obj = {
 The following keywords are reserved and cannot be used as variable names:
 
 - `global`
-- `def`, `lambda`
-- `class`, `implements`
-- `self`
+- `def`
+- `class`
+- `implements`
+- `this`
 - `if`, `elif`, `else`
-- `while`, `for`
+- `while`
+- `for`
 - `break`, `return`, `pass`
 - `and`, `or`, `not`
 - `True`, `False`, `None`
@@ -703,14 +720,14 @@ The following keywords are reserved and cannot be used as variable names:
 ```python
 class Todo:
     def init(title):
-        self.title = title
-        self.completed = False
+        this.title = title
+        this.completed = False
     
     def toggle():
-        self.completed = not self.completed
+        this.completed = not this.completed
 
 todos = {
-    Todo("Learn PythonWisp"),
+    Todo("Learn PyWisp"),
     Todo("Build a project"),
     Todo("Deploy to production")
 }
@@ -726,57 +743,84 @@ for i = 0, i < 3, i += 1:
     print(status + " " + todos[i].title)
 ```
 
+### Complete Example: Counter Class
+
+```python
+class Counter:
+    def init(start):
+        this.value = start
+    
+    def increment():
+        this.value += 1
+    
+    def decrement():
+        this.value -= 1
+    
+    def reset():
+        this.value = 0
+
+counter = Counter(10)
+counter.increment()
+counter.increment()
+print(counter.value)  # 12
+counter.reset()
+print(counter.value)  # 0
+```
+
 ---
 
 ## Best Practices
 
 1. **Use local variables by default** - Only use `global` when necessary
-2. **Prefer classes for complex objects** - Use `self` for better method context
-3. **Use object names in object methods** - Since `self` isn't available in object literals
-4. **Be consistent with quotes** - Pick single or double quotes and stick with it
-5. **Use triple quotes for multi-line text** - Cleaner than escape sequences
-6. **Comment your code** - Use `#` for single lines, `"""` for blocks
-7. **Zero-index your lists** - Remember lists start at 0
-8. **Use `pass` for empty blocks** - Required for empty classes and functions
-9. **Use augmented assignment** - `x += 1` instead of `x = x + 1`
+2. **Use `pass` for empty blocks** - Required in class/function definitions
+3. **Prefer classes for complex objects** - Use `this` for better method context
+4. **Use object names in object methods** - Since `this` isn't available in object literals
+5. **Be consistent with quotes** - Pick single or double quotes and stick with it
+6. **Use triple quotes for multi-line text** - Cleaner than escape sequences
+7. **Comment your code** - Use `#` for single lines, `"""` for blocks
+8. **Zero-index your lists** - Remember lists start at 0, not 1
+9. **Use compound assignment operators** - `x += 1` instead of `x = x + 1`
+10. **Create global instances for shared classes** - Use `global instance = MyClass()` to expose class instances
 
 ---
 
 ## Differences from Standard Python
 
-PythonWisp is inspired by Python but has some differences:
+PyWisp is inspired by Python but has some key differences:
 
-1. **Unified `{}` syntax** for both objects and lists (determined by content)
-2. **Objects use `=` not `:`** - `{a = 1}` not `{a: 1}`
-3. **`self` keyword for classes** instead of explicit self parameter
-4. **Classes use `implements`** for inheritance, not Python's class syntax
-5. **All variables are local by default** - Use `global` keyword for globals
-6. **Unique for loop syntax** - Three-part comma-separated format
-7. **No `len()` for lists** - Must implement as registered function
-8. **Built-in `print` function** transpiles to `console.log`
-9. **`True`/`False`/`None`** transpile to JavaScript equivalents
-10. **`pass` statement** for empty blocks (like Python)
+1. **Lists use `{}` braces**, not `[]` brackets
+2. **Objects use `{key = value}` syntax**, not `{key: value}`
+3. **`this` keyword for classes** instead of self parameter
+4. **No lambda functions** - Use `def(): pass` for inline functions
+5. **`pass` is required** for empty blocks (classes, functions, if statements)
+6. **Unified `{}` syntax** for both objects and lists (determined by content)
+7. **No list comprehensions** - Use standard for loops
+8. **`implements` keyword** for inheritance, not standard Python inheritance
+9. **Built-in `print` function** transpiles to `console.log`
+10. **`global` keyword** for global scope, not Python's global statement
+11. **For loop syntax** uses three expressions like C-style for loops
+12. **Booleans are `True`/`False`** (capitalized), `None` instead of `null`
+13. **Exponentiation uses `**`** like Python, not `^`
+14. **Classes are always local** - must create global instances to share
 
 ---
 
-## Migration from LuaWisp
+## Syntax Comparison Table
 
-If you're coming from LuaWisp, here are the key differences:
-
-| Feature | LuaWisp | PythonWisp |
-|---------|---------|------------|
-| Comments | `--` and `--[[]]` | `#` and `"""` |
-| Booleans | `true`/`false`/`nil` | `True`/`False`/`None` |
-| Variables | `local x = 10` | `x = 10` (local by default) |
-| Global | `x = 10` | `global x = 10` |
-| Functions | `function name()` | `def name():` |
-| Classes | `this` keyword | `self` keyword |
-| Conditionals | `if...then...end` | `if...:` (indentation) |
-| Loops | `while...do...end` | `while...:` (indentation) |
-| String concat | `..` operator | `+` operator |
-| Not equal | `~=` | `!=` |
-| Exponent | `^` | `**` |
-| Empty blocks | (no keyword) | `pass` |
-| Augmented assign | Not available | `+=`, `-=`, `*=`, `/=` |
+| Feature | PyWisp | Standard Python |
+|---------|--------|-----------------|
+| Lists | `{1, 2, 3}` | `[1, 2, 3]` |
+| Objects | `{a = 1, b = 2}` | `{"a": 1, "b": 2}` |
+| Functions | `def name(): pass` | `def name(): pass` |
+| Lambda | `def(): pass` | `lambda: None` |
+| Classes | `class Name: pass` | `class Name: pass` |
+| Inheritance | `implements` | `(ParentClass)` |
+| Self | `this` | `self` |
+| Global | `global x = 1` | `global x; x = 1` |
+| For Loop | `for i = 0, i < 10, i += 1:` | `for i in range(10):` |
+| Boolean | `True`, `False` | `True`, `False` |
+| Null | `None` | `None` |
+| Comments | `#` and `"""` | `#` and `"""` |
+| Exponent | `2 ** 8` | `2 ** 8` |
 
 ---
